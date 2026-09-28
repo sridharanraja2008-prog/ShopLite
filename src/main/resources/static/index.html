@@ -450,10 +450,6 @@
           throw new Error(err.message || `Product not found with ID ${id}`);
         }
         const product = await res.json();
-        if (product.message === "The product was previously deleted" || product.deleted) {
-          showAlert("The product was previously deleted", "warning");
-          return;
-        }
         renderProductsTable([product]);
         showAlert(`Successfully fetched product #${product.id}: "${product.name}"`, 'success');
       } catch (err) {
