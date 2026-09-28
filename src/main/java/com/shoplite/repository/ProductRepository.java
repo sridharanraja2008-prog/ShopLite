@@ -18,17 +18,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.id = :id")
     Optional<Product> findByIdWithLock(@Param("id") Long id);
 
-    @Query("SELECT p FROM Product p WHERE (p.deleted = false OR p.deleted IS NULL)")
-    List<Product> findAllActiveProducts();
-
-    List<Product> findByDeletedTrue();
-
-    @Query("SELECT p FROM Product p WHERE (p.deleted = false OR p.deleted IS NULL) AND p.stockQuantity < p.reorderThreshold")
+    @Query("SELECT p FROM Product p WHERE p.stockQuantity < p.reorderThreshold")
     List<Product> findLowStockProducts();
 
-    @Query("SELECT COUNT(p) FROM Product p WHERE (p.deleted = false OR p.deleted IS NULL) AND p.stockQuantity < p.reorderThreshold")
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.stockQuantity < p.reorderThreshold")
     long countLowStockProducts();
 
-    @Query("SELECT p FROM Product p WHERE (p.deleted = false OR p.deleted IS NULL) AND LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))")
-    List<Product> findByNameContainingIgnoreCase(@Param("name") String name);
+    List<Product> findByNameContainingIgnoreCase(String name);
 }

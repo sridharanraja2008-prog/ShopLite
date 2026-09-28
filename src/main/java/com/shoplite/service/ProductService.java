@@ -31,26 +31,16 @@ public class ProductService {
         product.setPrice(request.getPrice());
         product.setStockQuantity(request.getStockQuantity());
         product.setReorderThreshold(request.getReorderThreshold());
-        product.setDeleted(false);
         return productRepository.save(product);
     }
 
     public List<Product> getAllProducts() {
-        return productRepository.findAllActiveProducts();
-    }
-
-    public Product findRawProductById(Long id) {
-        return productRepository.findById(id).orElse(null);
+        return productRepository.findAll();
     }
 
     public Product getProductById(Long id) {
-        Product product = productRepository.findById(id)
+        return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
-
-        if (Boolean.TRUE.equals(product.getDeleted())) {
-            throw new ResourceNotFoundException("The product was previously deleted");
-        }
-        return product;
     }
 
     @Transactional
@@ -65,19 +55,14 @@ public class ProductService {
 
     @Transactional
     public void deleteProduct(Long id) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
+        Product product = getProductById(id);
 
-        if (Boolean.TRUE.equals(product.getDeleted())) {
-            throw new InvalidOperationException("The product was previously deleted");
+        boolean hasBillingHistory = billItemRepository.existsByProductId(id);
+        if (hasBillingHistory) {
+            throw new InvalidOperationException("Cannot delete product '" + product.getName() + "' because it has associated billing history.");
         }
 
-        product.setDeleted(true);
-        productRepository.save(product);
-    }
-
-    public List<Product> getDeletedProducts() {
-        return productRepository.findByDeletedTrue();
+        productRepository.delete(product);
     }
 
     public List<LowStockProductResponse> getLowStockProducts() {
@@ -96,7 +81,7 @@ public class ProductService {
 
     public List<Product> searchProducts(String name) {
         if (name == null || name.trim().isEmpty()) {
-            return productRepository.findAllActiveProducts();
+            return productRepository.findAll();
         }
         return productRepository.findByNameContainingIgnoreCase(name.trim());
     }
