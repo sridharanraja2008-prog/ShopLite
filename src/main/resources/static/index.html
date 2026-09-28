@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopLite - Small Shop Inventory & Billing</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #333333;
+    }
+    .navbar {
+      background-color: #0d6efd;
+    }
+    .card {
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .card-header {
+      background-color: #ffffff;
+      border-bottom: 1px solid #dee2e6;
+      font-weight: 600;
+    }
+    .nav-pills .nav-link {
+      color: #495057;
+      font-weight: 500;
+      border-radius: 6px;
+      padding: 8px 16px;
+      margin-right: 6px;
+      border: 1px solid #ced4da;
+      background-color: #ffffff;
+    }
+    .nav-pills .nav-link.active {
+      background-color: #0d6efd;
+      color: #ffffff;
+      border-color: #0d6efd;
+    }
+    .badge-low-stock {
+      background-color: #dc3545;
+      color: #ffffff;
+    }
+    .badge-in-stock {
+      background-color: #198754;
+      color: #ffffff;
+    }
+    .receipt-box {
+      background: #ffffff;
+      border: 2px dashed #6c757d;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .table th {
+      background-color: #f1f3f5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navbar (Clean, No Swagger button, No images) -->
+  <nav class="navbar navbar-dark py-3">
+    <div class="container">
+      <span class="navbar-brand mb-0 h1 fw-bold">ShopLite</span>
+      <span class="text-white-50 small">Small Shop Inventory & Billing System</span>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <div class="container my-4">
+
+    <!-- Alert Banner Container for Feedback -->
+    <div id="alertContainer"></div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-pills mb-4" id="mainTabs" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active" id="billing-tab" data-bs-toggle="pill" data-bs-target="#billingPane" type="button">
+          1. New Sale (Billing)
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="products-tab" data-bs-toggle="pill" data-bs-target="#productsPane" type="button" onclick="loadProducts()">
+          2. Shop Inventory
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="lowstock-tab" data-bs-toggle="pill" data-bs-target="#lowStockPane" type="button" onclick="loadLowStock()">
+          3. Low Stock Alerts
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="reports-tab" data-bs-toggle="pill" data-bs-target="#reportsPane" type="button" onclick="loadDailyReport()">
+          4. Daily Sales Report
+        </button>
+      </li>
+    </ul>
+
+    <!-- Tab Contents -->
+    <div class="tab-content" id="tabContent">
+
+      <!-- ================= 1. BILLING TAB ================= -->
+      <div class="tab-pane fade show active" id="billingPane" role="tabpanel">
+        <div class="row">
+          <!-- Left: Select Product -->
+          <div class="col-lg-5">
+            <div class="card">
+              <div class="card-header py-3">
+                Select Items for Bill
+              </div>
+              <div class="card-body">
+                <form id="addItemForm" onsubmit="handleAddToCart(event)">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Select Product</label>
+                    <select id="billProductSelect" class="form-select" required onchange="updateSelectedProductInfo()">
+                      <option value="">-- Choose Product --</option>
+                    </select>
+                    <div id="productStockHint" class="form-text text-muted mt-1"></div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Quantity</label>
+                    <input type="number" id="billQuantity" class="form-control" min="1" value="1" required>
+                  </div>
+
+                  <button type="submit" class="btn btn-primary w-100 py-2">
+                    Add to Bill Cart
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Cart & Generate Bill -->
+          <div class="col-lg-7">
+            <div class="card">
+              <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <span>Current Bill Items</span>
+                <button class="btn btn-outline-danger btn-sm" onclick="clearCart()">
+                  Clear Bill
+                </button>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th class="text-center">Price</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Subtotal</th>
+                        <th class="text-center">Remove</th>
+                      </tr>
+                    </thead>
+                    <tbody id="cartTableBody">
+                      <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                          No items added yet. Select a product on the left.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="card-footer bg-white p-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <span class="fs-5 text-secondary">Total Amount:</span>
+                  <span class="fs-3 fw-bold text-success" id="cartGrandTotal">₹0.00</span>
+                </div>
+                <button id="btnGenerateBill" class="btn btn-success btn-lg w-100 fw-bold" onclick="generateBill()" disabled>
+                  Generate Bill & Deduct Stock
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 2. SHOP INVENTORY TAB ================= -->
+      <div class="tab-pane fade" id="productsPane" role="tabpanel">
+        <div class="row">
+          <!-- Add Product Form -->
+          <div class="col-lg-4">
+            <div class="card">
+              <div class="card-header py-3">
+                Add New Product
+              </div>
+              <div class="card-body">
+                <form id="addProductForm" onsubmit="handleAddProduct(event)">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Product Name</label>
+                    <input type="text" id="newProdName" class="form-control" placeholder="e.g. Rice 1kg, Milk 500ml" required>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Price (₹)</label>
+                    <input type="number" id="newProdPrice" class="form-control" step="0.01" min="0.01" placeholder="e.g. 60.00" required>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Stock Quantity</label>
+                    <input type="number" id="newProdStock" class="form-control" min="0" placeholder="e.g. 20" required>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Reorder Threshold</label>
+                    <input type="number" id="newProdThreshold" class="form-control" min="0" placeholder="Alert limit (e.g. 5)" required>
+                  </div>
+                  <button type="submit" class="btn btn-primary w-100 py-2">
+                    Save Product
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Product Inventory Table with Edit & Delete -->
+          <div class="col-lg-8">
+            <div class="card">
+              <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <span>Current Stock In Shop</span>
+                <button class="btn btn-outline-secondary btn-sm" onclick="loadProducts()">
+                  Refresh
+                </button>
+              </div>
+              <div class="p-3 border-bottom bg-light">
+                <div class="input-group">
+                  <span class="input-group-text bg-white">Product ID:</span>
+                  <input type="number" id="searchProductId" class="form-control" placeholder="Enter ID to fetch (e.g. 1)" min="1">
+                  <button class="btn btn-primary" type="button" onclick="handleSearchById()">Search by ID</button>
+                  <button class="btn btn-outline-secondary" type="button" onclick="resetSearch()">Show All</button>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>#ID</th>
+                        <th>Product Name</th>
+                        <th>Price</th>
+                        <th class="text-center">Stock</th>
+                        <th class="text-center">Reorder Limit</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="productsTableBody">
+                      <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">Loading inventory...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 3. LOW STOCK ALERTS TAB ================= -->
+      <div class="tab-pane fade" id="lowStockPane" role="tabpanel">
+        <div class="card">
+          <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <span>Products Requiring Reorder (Stock Below Threshold)</span>
+            <button class="btn btn-outline-secondary btn-sm" onclick="loadLowStock()">
+              Refresh
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Price</th>
+                    <th class="text-center">Available Stock</th>
+                    <th class="text-center">Reorder Limit</th>
+                    <th class="text-center">Alert Status</th>
+                  </tr>
+                </thead>
+                <tbody id="lowStockTableBody">
+                  <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">Checking stock levels...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 4. DAILY SALES REPORT TAB ================= -->
+      <div class="tab-pane fade" id="reportsPane" role="tabpanel">
+        <div class="card">
+          <div class="card-header py-3">
+            Daily Sales Report
+          </div>
+          <div class="card-body">
+            <div class="row align-items-end mb-4">
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Select Date</label>
+                <input type="date" id="reportDateInput" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <button class="btn btn-primary w-100" onclick="loadDailyReport()">
+                  Fetch Report
+                </button>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="p-3 bg-light rounded border text-center">
+                  <div class="text-secondary small fw-semibold">TOTAL BILLS FINALIZED</div>
+                  <div class="fs-2 fw-bold text-primary mt-1" id="reportBillCount">0</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="p-3 bg-light rounded border text-center">
+                  <div class="text-secondary small fw-semibold">TOTAL REVENUE (₹)</div>
+                  <div class="fs-2 fw-bold text-success mt-1" id="reportTotalSales">₹0.00</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Edit Product Modal -->
+  <div class="modal fade" id="editProductModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">Edit Product</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="editProductForm" onsubmit="handleUpdateProduct(event)">
+          <div class="modal-body">
+            <input type="hidden" id="editProdId">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Product Name</label>
+              <input type="text" id="editProdName" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Price (₹)</label>
+              <input type="number" id="editProdPrice" class="form-control" step="0.01" min="0.01" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Stock Quantity</label>
+              <input type="number" id="editProdStock" class="form-control" min="0" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Reorder Threshold</label>
+              <input type="number" id="editProdThreshold" class="form-control" min="0" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bill Receipt Modal -->
+  <div class="modal fade" id="receiptModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold text-success">Bill Finalized Successfully</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="receipt-box" id="receiptContent">
+            <div class="text-center mb-3">
+              <h4 class="fw-bold mb-0">ShopLite Store</h4>
+              <small class="text-muted">Retail Sales Invoice</small>
+              <div class="small text-muted mt-1" id="receiptDate"></div>
+              <div class="fw-bold text-primary mt-1" id="receiptBillNo"></div>
+            </div>
+            <hr>
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th class="text-center">Qty</th>
+                  <th class="text-end">Rate</th>
+                  <th class="text-end">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="receiptItems"></tbody>
+            </table>
+            <hr>
+            <div class="d-flex justify-content-between fw-bold fs-5">
+              <span>Grand Total:</span>
+              <span class="text-success" id="receiptGrandTotal"></span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick="window.print()">Print Receipt</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let productsList = [];
+    let cart = [];
+    let editModal = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('reportDateInput').value = today;
+      editModal = new bootstrap.Modal(document.getElementById('editProductModal'));
+      loadProducts();
+    });
+
+    function showAlert(message, type = 'danger') {
+      const container = document.getElementById('alertContainer');
+      container.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      `;
+      setTimeout(() => {
+        const alert = container.querySelector('.alert');
+        if (alert) alert.remove();
+      }, 5000);
+    }
+
+    // Search product by ID (GET /api/products/{id})
+    async function handleSearchById() {
+      const idInput = document.getElementById('searchProductId');
+      const id = idInput.value;
+      if (!id) {
+        showAlert('Please enter a Product ID to search', 'warning');
+        return;
+      }
+      try {
+        const res = await fetch(`/api/products/${id}`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: 'Product not found' }));
+          throw new Error(err.message || `Product not found with ID ${id}`);
+        }
+        const product = await res.json();
+        renderProductsTable([product]);
+        showAlert(`Successfully fetched product #${product.id}: "${product.name}"`, 'success');
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    function resetSearch() {
+      document.getElementById('searchProductId').value = '';
+      loadProducts();
+    }
+
+    function renderProductsTable(list) {
+      const tbody = document.getElementById('productsTableBody');
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No products found.</td></tr>';
+      } else {
+        tbody.innerHTML = list.map(p => {
+          const isLowStock = p.stockQuantity < p.reorderThreshold;
+          const badgeClass = isLowStock ? 'badge-low-stock' : 'badge-in-stock';
+          const badgeText = isLowStock ? 'LOW STOCK' : 'IN STOCK';
+
+          return `
+            <tr>
+              <td class="fw-semibold text-secondary">#${p.id}</td>
+              <td class="fw-bold">${p.name}</td>
+              <td>₹${Number(p.price).toFixed(2)}</td>
+              <td class="text-center fs-6 fw-bold ${isLowStock ? 'text-danger' : 'text-dark'}">${p.stockQuantity}</td>
+              <td class="text-center text-muted">${p.reorderThreshold}</td>
+              <td class="text-center"><span class="badge ${badgeClass}">${badgeText}</span></td>
+              <td class="text-center">
+                <button class="btn btn-outline-primary btn-sm py-0 px-2 me-1" onclick="openEditModal(${p.id})">Edit</button>
+                <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="handleDeleteProduct(${p.id}, '${p.name.replace(/'/g, "\\'")}')">Delete</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    // 1. Fetch & Display Products
+    async function loadProducts() {
+      try {
+        const res = await fetch('/api/products');
+        productsList = await res.json();
+
+        renderProductsTable(productsList);
+
+        const select = document.getElementById('billProductSelect');
+        const currentSelected = select.value;
+        select.innerHTML = '<option value="">-- Choose Product --</option>' + 
+          productsList.map(p => `<option value="${p.id}" ${p.id == currentSelected ? 'selected' : ''}>${p.name} (Stock: ${p.stockQuantity}) - ₹${Number(p.price).toFixed(2)}</option>`).join('');
+
+        updateSelectedProductInfo();
+      } catch (err) {
+        console.error('Failed to load products:', err);
+      }
+    }
+
+    function updateSelectedProductInfo() {
+      const select = document.getElementById('billProductSelect');
+      const hint = document.getElementById('productStockHint');
+      const prod = productsList.find(p => p.id == select.value);
+      if (prod) {
+        hint.innerHTML = `<span class="fw-semibold">Available Stock:</span> ${prod.stockQuantity} units | <span class="fw-semibold">Price:</span> ₹${Number(prod.price).toFixed(2)}`;
+      } else {
+        hint.innerText = '';
+      }
+    }
+
+    // 2. Add Product
+    async function handleAddProduct(e) {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('newProdName').value,
+        price: parseFloat(document.getElementById('newProdPrice').value),
+        stockQuantity: parseInt(document.getElementById('newProdStock').value),
+        reorderThreshold: parseInt(document.getElementById('newProdThreshold').value)
+      };
+
+      try {
+        const res = await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Failed to add product');
+        }
+
+        showAlert(`Product "${payload.name}" added successfully!`, 'success');
+        document.getElementById('addProductForm').reset();
+        loadProducts();
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    // 3. Edit Product
+    function openEditModal(productId) {
+      const prod = productsList.find(p => p.id === productId);
+      if (!prod) return;
+
+      document.getElementById('editProdId').value = prod.id;
+      document.getElementById('editProdName').value = prod.name;
+      document.getElementById('editProdPrice').value = prod.price;
+      document.getElementById('editProdStock').value = prod.stockQuantity;
+      document.getElementById('editProdThreshold').value = prod.reorderThreshold;
+
+      editModal.show();
+    }
+
+    async function handleUpdateProduct(e) {
+      e.preventDefault();
+      const id = document.getElementById('editProdId').value;
+      const payload = {
+        name: document.getElementById('editProdName').value,
+        price: parseFloat(document.getElementById('editProdPrice').value),
+        stockQuantity: parseInt(document.getElementById('editProdStock').value),
+        reorderThreshold: parseInt(document.getElementById('editProdThreshold').value)
+      };
+
+      try {
+        const res = await fetch(`/api/products/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Failed to update product');
+        }
+
+        editModal.hide();
+        showAlert(`Product "${payload.name}" updated successfully!`, 'success');
+        loadProducts();
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    // 4. Delete Product
+    async function handleDeleteProduct(id, name) {
+      if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+
+      try {
+        const res = await fetch(`/api/products/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Failed to delete product');
+        }
+
+        showAlert(`Product "${name}" deleted successfully!`, 'success');
+        loadProducts();
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    // 5. Billing Cart Logic
+    function handleAddToCart(e) {
+      e.preventDefault();
+      const select = document.getElementById('billProductSelect');
+      const productId = parseInt(select.value);
+      const qtyInput = document.getElementById('billQuantity');
+      const quantity = parseInt(qtyInput.value);
+
+      const product = productsList.find(p => p.id === productId);
+      if (!product) return;
+
+      const existingInCart = cart.find(item => item.productId === productId);
+      const totalRequested = (existingInCart ? existingInCart.quantity : 0) + quantity;
+
+      if (totalRequested > product.stockQuantity) {
+        showAlert(`Insufficient stock for "${product.name}". Available: ${product.stockQuantity}, Requested: ${totalRequested}`, 'danger');
+        return;
+      }
+
+      if (existingInCart) {
+        existingInCart.quantity = totalRequested;
+        existingInCart.subtotal = existingInCart.quantity * product.price;
+      } else {
+        cart.push({
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: quantity,
+          subtotal: quantity * product.price
+        });
+      }
+
+      qtyInput.value = 1;
+      renderCart();
+    }
+
+    function renderCart() {
+      const tbody = document.getElementById('cartTableBody');
+      const btn = document.getElementById('btnGenerateBill');
+      const totalEl = document.getElementById('cartGrandTotal');
+
+      if (cart.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center text-muted py-4">
+              No items added yet. Select a product on the left.
+            </td>
+          </tr>
+        `;
+        totalEl.innerText = '₹0.00';
+        btn.disabled = true;
+        return;
+      }
+
+      let grandTotal = 0;
+      tbody.innerHTML = cart.map((item, idx) => {
+        grandTotal += item.subtotal;
+        return `
+          <tr>
+            <td class="fw-bold">${item.name}</td>
+            <td class="text-center">₹${Number(item.price).toFixed(2)}</td>
+            <td class="text-center">${item.quantity}</td>
+            <td class="text-end fw-semibold">₹${Number(item.subtotal).toFixed(2)}</td>
+            <td class="text-center">
+              <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="removeFromCart(${idx})">X</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      totalEl.innerText = `₹${grandTotal.toFixed(2)}`;
+      btn.disabled = false;
+    }
+
+    function removeFromCart(idx) {
+      cart.splice(idx, 1);
+      renderCart();
+    }
+
+    function clearCart() {
+      cart = [];
+      renderCart();
+    }
+
+    // 6. Generate Bill
+    async function generateBill() {
+      if (cart.length === 0) return;
+
+      const payload = {
+        items: cart.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity
+        }))
+      };
+
+      try {
+        const res = await fetch('/api/bills', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Failed to generate bill');
+        }
+
+        const bill = await res.json();
+        showReceipt(bill);
+        clearCart();
+        loadProducts();
+      } catch (err) {
+        showAlert(err.message, 'danger');
+      }
+    }
+
+    function showReceipt(bill) {
+      document.getElementById('receiptBillNo').innerText = `Invoice #BILL-${bill.id}`;
+      document.getElementById('receiptDate').innerText = new Date(bill.finalizedAt || bill.billDate).toLocaleString();
+
+      const itemsTbody = document.getElementById('receiptItems');
+      itemsTbody.innerHTML = bill.items.map(item => `
+        <tr>
+          <td>${item.product.name}</td>
+          <td class="text-center">${item.quantity}</td>
+          <td class="text-end">₹${Number(item.unitPrice).toFixed(2)}</td>
+          <td class="text-end fw-semibold">₹${Number(item.subtotal).toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('receiptGrandTotal').innerText = `₹${Number(bill.totalAmount).toFixed(2)}`;
+
+      const modal = new bootstrap.Modal(document.getElementById('receiptModal'));
+      modal.show();
+    }
+
+    // 7. Low Stock Alerts
+    async function loadLowStock() {
+      try {
+        const res = await fetch('/api/products/low-stock');
+        const lowStock = await res.json();
+
+        const tbody = document.getElementById('lowStockTableBody');
+        if (!lowStock || lowStock.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-success py-4">All products have sufficient stock! No items need reordering.</td></tr>';
+        } else {
+          tbody.innerHTML = lowStock.map(p => `
+            <tr>
+              <td class="fw-bold text-danger">${p.name}</td>
+              <td>₹${Number(p.price).toFixed(2)}</td>
+              <td class="text-center fs-6 fw-bold text-danger">${p.availableStock}</td>
+              <td class="text-center text-muted">${p.reorderThreshold}</td>
+              <td class="text-center"><span class="badge badge-low-stock">REORDER REQUIRED</span></td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load low stock:', err);
+      }
+    }
+
+    // 8. Daily Sales Report
+    async function loadDailyReport() {
+      const date = document.getElementById('reportDateInput').value;
+      if (!date) return;
+
+      try {
+        const res = await fetch(`/api/reports/daily?date=${date}`);
+        if (!res.ok) throw new Error('Could not fetch daily sales');
+
+        const data = await res.json();
+        document.getElementById('reportBillCount').innerText = data.totalFinalizedBills || 0;
+        document.getElementById('reportTotalSales').innerText = `₹${Number(data.totalSalesAmount || 0).toFixed(2)}`;
+      } catch (err) {
+        console.error('Failed to load report:', err);
+      }
+    }
+  </script>
+</body>
+</html>
