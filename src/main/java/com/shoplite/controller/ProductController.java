@@ -3,6 +3,7 @@ package com.shoplite.controller;
 import com.shoplite.dto.LowStockProductResponse;
 import com.shoplite.dto.ProductRequest;
 import com.shoplite.entity.Product;
+import com.shoplite.exception.ResourceNotFoundException;
 import com.shoplite.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,7 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/products")
@@ -37,7 +40,11 @@ public class ProductController {
         return ResponseEntity.ok(productService.getAllProducts());
     }
 
-    
+    @GetMapping("/deleted")
+    @Operation(summary = "View previously deleted products", description = "Returns a list of all products that were previously deleted.")
+    public ResponseEntity<List<Product>> getDeletedProducts() {
+        return ResponseEntity.ok(productService.getDeletedProducts());
+    }
 
     @GetMapping("/low-stock")
     @Operation(summary = "Low stock alert", description = "Displays products whose stock is below the reorder threshold.")
@@ -46,9 +53,18 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get product by ID", description = "Fetches a single product by its unique ID. If the product was previously deleted, shows 'Product previously deleted'.")
-    public ResponseEntity<Product> getProductById(@PathVariable Long id) {
-        return ResponseEntity.ok(productService.getProductById(id));
+    @Operation(summary = "Get product by ID", description = "Fetches a single product by its unique ID. If the product was previously deleted, shows 'The product was previously deleted'.")
+    public ResponseEntity<?> getProductById(@PathVariable Long id) {
+        Product product = productService.findRawProductById(id);
+        if (product == null) {
+            throw new ResourceNotFoundException("Product not found with id: " + id);
+        }
+        if (Boolean.TRUE.equals(product.getDeleted())) {
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("message", "The product was previously deleted");
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.ok(product);
     }
 
     @PutMapping("/{id}")

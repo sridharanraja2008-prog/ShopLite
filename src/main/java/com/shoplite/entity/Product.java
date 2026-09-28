@@ -34,7 +34,11 @@ public class Product {
     @Column(name = "reorder_threshold", nullable = false)
     private Integer reorderThreshold;
 
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean deleted = false;
+
     public Product() {
+        this.deleted = false;
     }
 
     public Product(Long id, String name, BigDecimal price, Integer stockQuantity, Integer reorderThreshold) {
@@ -43,6 +47,7 @@ public class Product {
         this.price = price;
         this.stockQuantity = stockQuantity;
         this.reorderThreshold = reorderThreshold;
+        this.deleted = false;
     }
 
     public Long getId() {
@@ -83,5 +88,13 @@ public class Product {
 
     public void setReorderThreshold(Integer reorderThreshold) {
         this.reorderThreshold = reorderThreshold;
+    }
+
+    public Boolean getDeleted() {
+        return deleted != null && deleted;
+    }
+
+    public void setDeleted(Boolean deleted) {
+        this.deleted = (deleted != null) ? deleted : false;
     }
 }
